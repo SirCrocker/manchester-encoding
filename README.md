@@ -5,6 +5,7 @@
 Current implementation done only for the ESP8266
 
 #### Todo:
+- [ ] Implement sync
 - [ ] Implement it
 
 **Definitions**
@@ -12,5 +13,5 @@ Current implementation done only for the ESP8266
 
 
 **Based on**: 
- - Manchester Coding Basics [APPLICATION NOTE] - 9164B–AUTO–07/15
+ - ATMEL - Manchester Coding Basics [APPLICATION NOTE] - 9164B–AUTO–07/15
  - https://github.com/mchr3k/arduino-libs-manchester/tree/master

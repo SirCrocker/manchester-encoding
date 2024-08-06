@@ -19,7 +19,7 @@ Convention used to represent the data:
 - GE Thomas:
     1 is LOW-HI & 0 is HI-LOW 
 */
-typedef enum convention{
+typedef enum convention {
     IEEE802_3 = 0,
     GE_THOMAS = 1
 } enc_convention_t;
@@ -42,6 +42,11 @@ typedef enum baudRates {
 } baud_rate_t;
 
 
+typedef enum rxState {
+    RX_IDLE,
+    RX_RECEIVING
+} rx_state_t;
+
 /************************** 
 -- MACROs -- 
 *************************/
@@ -51,7 +56,12 @@ typedef enum baudRates {
 #define MANCH_CONVENTION IEEE802_3
 #endif // MANCH_CONVENTION
 
-#define MANCH_SAMPLES_PER_SYMBOL 3  // Samples per mid-bit
+#define MANCH_RECV_BUFFER_SIZE 64
+
+#define MANCH_SAMPLES_PER_MIDBIT 3  // Samples per mid-bit
+#define MANCH_IDLE_CHECK_VALUE 0x80
+#define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - MANCH_SAMPLES_PER_MIDBIT * 4
+#define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + MANCH_SAMPLES_PER_MIDBIT * 4
 
 /************************** 
 -- CLASSES & FUNCTIONS -- 
@@ -65,20 +75,30 @@ public:
     ManchesterEncoding &operator=(const ManchesterEncoding &) = delete;
 
     /**
-     * @brief beginTxs
+     * @brief Setups the transmission
      * 
-     * @attention (WIP) - Work In Progress
+     * @param baud_rate baud rate with which the data will be sent
+     * @param pin pin that will send the data
+     * 
+     * @attention baud rate must be the same as the one on the receiver
      * 
      * @return
+     * 
+     * @related beginReceive
      */
     void beginTransmit(baud_rate_t baud_rate, uint8_t pin);
     
     /**
-     * @brief beginRxs
+     * @brief Setups the reception
      * 
-     * @attention (WIP) - Work In Progress
+     * @param baud_rate baud rate with which the data was transmitted
+     * @param pin pin that will read the received values
+     * 
+     * @attention baud rate must be the same as the one on the transmitter
      * 
      * @return
+     * 
+     * @related beginTransmit
      */
     void beginReceive(baud_rate_t baud_rate, uint8_t pin);
 
@@ -92,6 +112,15 @@ public:
      * @return
      */
     void transmit(uint8_t message);
+
+    /**
+     * @brief Gets the data (if available)
+     * 
+     * @param data data "recuperada" will be saved here.
+     * 
+     * @return bool that determines if data was available.
+     */
+    bool getData(uint8_t &data);
 
 private:
     ManchesterEncoding() = default;
@@ -114,10 +143,21 @@ private:
      */
     void transmitZero();
 
+    /**
+     * @brief Decodes the raw bits, removing headers and trailers, leaving only the data.
+     * 
+     * @return
+     */
+    void decodeRawBits();
+
     uint8_t m_txpin;
     uint8_t m_rxpin;
     uint32_t m_ticks_sample; // Ticks per sample
     unsigned int m_txdelay;
+    // TODO: Makes this allocation dependent on if transmitter or receiver mode will be used (in constructor, this would then be a pointer)
+    uint8_t m_byte_buffer[MANCH_RECV_BUFFER_SIZE / 2];
+    uint8_t m_buffer_read_pos;
+    uint8_t m_buffer_save_pos;
 
 };
 
@@ -132,6 +172,19 @@ private:
  * @return
  */
 static void interruptFunction();
+
+/**
+ * @brief Saves a midbit value
+ * 
+ * @param midbit_val midbit value to save (1 or 0)
+ * 
+ * @note This function will be used in an interrupt.
+ * 
+ * @link https://arduino-esp8266.readthedocs.io/en/latest/reference.html#interrupts
+ * 
+ * @return
+ */
+static void saveReceivedMidbit(uint8_t midbit_val);
 
 extern ManchesterEncoding &Manch;
 
