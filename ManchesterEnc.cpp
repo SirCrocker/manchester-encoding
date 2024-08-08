@@ -99,6 +99,15 @@ void ManchesterEncoding::transmitZero() {
 
 void ManchesterEncoding::transmit(uint8_t message) {
     
+    /**
+     * TEMP: transition detection for receiver, this will be later replaced by the sync header.
+     */
+    #if MANCH_CONVENTION == 0 // IEEE 802.3
+        transmitOne();
+    #elif MANCH_CONVENTION == 1 // GE THOMAS
+        transmitZero();
+    #endif // CONVENTION
+
     uint8_t mask = 0x80; // Transmit from MSb to LSb
     for (uint8_t bit = 0; bit < 8; bit++) {
         if (mask & message) {
@@ -198,7 +207,7 @@ void IRAM_ATTR interruptFunction() {
     
 }
 
-void IRAM_ATTR saveReceivedMidbit(uint8_t midbit_val) {
+void IRAM_ATTR saveReceivedMidbit(uint16_t midbit_val) {
     static uint8_t num_saved_midbit = 0;
     static uint16_t midbit_values_received = 0x00;
 

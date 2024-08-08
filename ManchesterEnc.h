@@ -60,8 +60,8 @@ typedef enum rxState {
 
 #define MANCH_SAMPLES_PER_MIDBIT 3  // Samples per mid-bit
 #define MANCH_IDLE_CHECK_VALUE 0x80
-#define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - MANCH_SAMPLES_PER_MIDBIT * 4
-#define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + MANCH_SAMPLES_PER_MIDBIT * 4
+#define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - MANCH_SAMPLES_PER_MIDBIT * 3
+#define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + MANCH_SAMPLES_PER_MIDBIT * 3
 
 /************************** 
 -- CLASSES & FUNCTIONS -- 
@@ -184,7 +184,7 @@ static void interruptFunction();
  * 
  * @return
  */
-static void saveReceivedMidbit(uint8_t midbit_val);
+static void saveReceivedMidbit(uint16_t midbit_val);
 
 extern ManchesterEncoding &Manch;
 
