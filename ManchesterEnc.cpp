@@ -26,6 +26,10 @@ ManchesterEncoding &Manch = Manch.getInstance();
 
 void ManchesterEncoding::beginTransmit(baud_rate_t baud_rate, uint8_t pin) {
     m_txpin = pin;
+
+    pinMode(m_txpin, OUTPUT);
+    digitalWrite(m_txpin, LOW);
+
     m_txdelay = 1e6 / (double)baud_rate; // Delay in microseconds
 
 }
@@ -38,9 +42,10 @@ void ManchesterEncoding::beginReceive(baud_rate_t baud_rate, uint8_t pin) {
     g_rx_pin = pin;
     
     if ( (g_rx_pin + 1) > NUM_DIGITAL_PINS) {
-        #pragma diag_suppress 35  // Ignore below error in editor
-        #error "Invalid pin defined for receiving."
+        return;
     }
+
+    pinMode(m_rxpin, INPUT);
 
     uint32_t midbit_ticks = uint32_t((double)CPU_CLK_FREQ / (double)baud_rate);  // Number of ticks per symbol (related to symbol rate)
     m_ticks_sample = midbit_ticks / MANCH_SAMPLES_PER_MIDBIT; // Ticks between samples per midbit
@@ -95,7 +100,7 @@ void ManchesterEncoding::transmitZero() {
 void ManchesterEncoding::transmit(uint8_t message) {
     
     uint8_t mask = 0x80; // Transmit from MSb to LSb
-    for (uint8_t bit = 0; bit < 7; bit++) {
+    for (uint8_t bit = 0; bit < 8; bit++) {
         if (mask & message) {
             transmitOne();
         } else {
@@ -103,6 +108,8 @@ void ManchesterEncoding::transmit(uint8_t message) {
         }
         mask >>= 1;
     }
+
+    digitalWrite(m_txpin, LOW);
 
 }
 
@@ -208,7 +215,7 @@ void IRAM_ATTR saveReceivedMidbit(uint8_t midbit_val) {
         {
             raw_bits |= midbit_values_received & mask;
             raw_bits <<= 1;
-            mask << i;
+            mask <<= i;
         }
         
         // Save the raw bit to a buffer
