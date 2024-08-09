@@ -15,9 +15,9 @@
 /* enc_convention_t
 Convention used to represent the data:
  - IEEE 802.3:
-     1 is HI-LOW & 0 is LOW-HI
+    0 is HI-LO & 1 is LO-HI
 - GE Thomas:
-    1 is LOW-HI & 0 is HI-LOW 
+    0 is LO-HI & 1 is HI-LO
 */
 typedef enum convention {
     IEEE802_3 = 0,
@@ -28,11 +28,11 @@ typedef enum convention {
 Baud Rate to use, it is directly related to bandwidth, not data rate!
 */
 typedef enum baudRates {
-    BR_300    = 300,  // Untested
-    BR_600    = 600,  // Untested
-    BR_1200   = 1200,  // Untested
-    BR_2400   = 2400,  // Untested
-    BR_4800   = 4800,  // Untested
+    BR_300    = 300,  
+    BR_600    = 600,
+    BR_1200   = 1200,
+    BR_2400   = 2400,
+    BR_4800   = 4800,
     BR_9600   = 9600,  // Untested
     BR_19200  = 19200,  // Untested
     BR_38400  = 38400,  // Untested
@@ -120,7 +120,9 @@ public:
      * 
      * @return bool that determines if data was available.
      */
-    bool getData(uint8_t &data);
+    bool getData(uint8_t *data);
+
+    uint16_t getDeleteMe();
 
 private:
     ManchesterEncoding() = default;

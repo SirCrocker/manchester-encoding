@@ -5,9 +5,10 @@
 Current implementation done only for the ESP8266
 
 #### Todo:
-- [ ] Check if the receiver method for identifying 1s and 0s works or if a more relaxed implementation is needed.
-- [ ] Implement sync
+- [ ] Implement sync (header+trailer should add 1 byte in length!)
 - [ ] Implement it
+- [x] Check if the receiver method for identifying 1s and 0s works or if a more relaxed implementation is needed.
+
 
 **Features**:
 - Both IEEE and G.E. Thomas conventions are available.

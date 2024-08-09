@@ -12,6 +12,9 @@ volatile static uint8_t g_idle_check_num = MANCH_IDLE_CHECK_VALUE;  // Number of
 volatile static uint8_t g_rawbits_buffer[MANCH_RECV_BUFFER_SIZE] = {0};
 volatile static uint8_t g_buffer_save_pos = 0;
 volatile static uint8_t g_buffer_read_pos = 0;
+volatile static uint8_t g_num_saved_midbit = 0;
+
+volatile static uint16_t deleteme_var = 0;
 
 /* ------------ CLASS METHODS FOR SINGLETON BEHAVIOUR ------------ */
 
@@ -23,6 +26,10 @@ ManchesterEncoding &ManchesterEncoding::getInstance() {
 ManchesterEncoding &Manch = Manch.getInstance();
 
 /* ------------ CLASS METHODS (CONT.) ------------ */
+
+uint16_t ManchesterEncoding::getDeleteMe() {
+    return deleteme_var;
+}
 
 void ManchesterEncoding::beginTransmit(baud_rate_t baud_rate, uint8_t pin) {
     m_txpin = pin;
@@ -63,17 +70,17 @@ void ManchesterEncoding::beginReceive(baud_rate_t baud_rate, uint8_t pin) {
 
 void ManchesterEncoding::transmitOne() {
 #if MANCH_CONVENTION == 0 // IEEE 802.3
-    digitalWrite(m_txpin, HIGH);
+    digitalWrite(m_txpin, LOW);
     delayMicroseconds(m_txdelay);
 
-    digitalWrite(m_txpin, LOW);
+    digitalWrite(m_txpin, HIGH);
     delayMicroseconds(m_txdelay);
 
 #elif MANCH_CONVENTION == 1 // GE THOMAS
-    digitalWrite(m_txpin, LOW);
+    digitalWrite(m_txpin, HIGH);
     delayMicroseconds(m_txdelay);
 
-    digitalWrite(m_txpin, HIGH);
+    digitalWrite(m_txpin, LOW);
     delayMicroseconds(m_txdelay);
 
 #endif // CONVENTION
@@ -81,17 +88,17 @@ void ManchesterEncoding::transmitOne() {
 
 void ManchesterEncoding::transmitZero() {
 #if MANCH_CONVENTION == 0 // IEEE 802.3
-    digitalWrite(m_txpin, LOW);
+    digitalWrite(m_txpin, HIGH);
     delayMicroseconds(m_txdelay);
 
-    digitalWrite(m_txpin, HIGH);
+    digitalWrite(m_txpin, LOW);
     delayMicroseconds(m_txdelay);
 
 #elif MANCH_CONVENTION == 1 // GE THOMAS
-    digitalWrite(m_txpin, HIGH);
+    digitalWrite(m_txpin, LOW);
     delayMicroseconds(m_txdelay);
 
-    digitalWrite(m_txpin, LOW);
+    digitalWrite(m_txpin, HIGH);
     delayMicroseconds(m_txdelay);
 
 #endif // CONVENTION
@@ -103,9 +110,9 @@ void ManchesterEncoding::transmit(uint8_t message) {
      * TEMP: transition detection for receiver, this will be later replaced by the sync header.
      */
     #if MANCH_CONVENTION == 0 // IEEE 802.3
-        transmitOne();
-    #elif MANCH_CONVENTION == 1 // GE THOMAS
         transmitZero();
+    #elif MANCH_CONVENTION == 1 // GE THOMAS
+        transmitOne();
     #endif // CONVENTION
 
     uint8_t mask = 0x80; // Transmit from MSb to LSb
@@ -140,11 +147,11 @@ void ManchesterEncoding::decodeRawBits() {
 
 }
 
-bool ManchesterEncoding::getData(uint8_t &data) {
+bool ManchesterEncoding::getData(uint8_t *data) {
     decodeRawBits(); // I hope this does not take too long...
 
     if (m_buffer_read_pos != m_buffer_save_pos) {
-        data = m_byte_buffer[m_buffer_read_pos];
+        *data = m_byte_buffer[m_buffer_read_pos];
         m_buffer_read_pos = (m_buffer_read_pos + 1) % (MANCH_RECV_BUFFER_SIZE / 2);
         return true;
     }
@@ -195,6 +202,7 @@ void IRAM_ATTR interruptFunction() {
         if ( (g_idle_check_num < MANCH_IDLE_CHECK_LOWER_LIMIT) || g_idle_check_num > MANCH_IDLE_CHECK_UPPER_LIMIT ) {
             g_state = RX_IDLE;
             g_idle_check_num = MANCH_IDLE_CHECK_VALUE;
+            g_num_saved_midbit = 0;
         }
         break;
     
@@ -208,17 +216,21 @@ void IRAM_ATTR interruptFunction() {
 }
 
 void IRAM_ATTR saveReceivedMidbit(uint16_t midbit_val) {
-    static uint8_t num_saved_midbit = 0;
     static uint16_t midbit_values_received = 0x00;
 
     // If we have received 16 midbits (or 8 raw bits) we read and save the raw bits
-    if (num_saved_midbit == 16) {
-        num_saved_midbit = 0;
-        
+    if (g_num_saved_midbit == 16) {
+        g_num_saved_midbit = 0;
+
         // Depending on the convention, we speed up the midbit decoding by just looking at 1 bit 
         // [!] WARNING: this does not catch invalid raw_bits.
+        #if MANCH_CONVENTION == 0 // IEEE 802.3
+        uint8_t i = 1;
+        #elif MANCH_CONVENTION == 1 // GE THOMAS
+        uint8_t i = 0;
+        #endif // CONVENTION
+
         uint16_t mask = 0x01;
-        uint8_t i = MANCH_CONVENTION == IEEE802_3 ? 1: 0;
         uint8_t raw_bits = 0x00;
         for (; i < 16; i += 2)
         {
@@ -231,9 +243,12 @@ void IRAM_ATTR saveReceivedMidbit(uint16_t midbit_val) {
         g_rawbits_buffer[g_buffer_save_pos] = raw_bits;
         g_buffer_save_pos = (g_buffer_save_pos + 1) % MANCH_RECV_BUFFER_SIZE;
 
+        // TODO: Delete
+        deleteme_var = midbit_values_received;
+
     }
 
     midbit_values_received <<= 1;
     midbit_values_received |= midbit_val;
-    num_saved_midbit++;
+    g_num_saved_midbit++;
 }
