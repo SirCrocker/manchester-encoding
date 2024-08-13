@@ -14,8 +14,6 @@ volatile static uint8_t g_buffer_save_pos = 0;
 volatile static uint8_t g_buffer_read_pos = 0;
 volatile static uint8_t g_num_saved_midbit = 0;
 
-volatile static uint16_t deleteme_var = 0;
-
 /* ------------ CLASS METHODS FOR SINGLETON BEHAVIOUR ------------ */
 
 ManchesterEncoding &ManchesterEncoding::getInstance() {
@@ -26,10 +24,6 @@ ManchesterEncoding &ManchesterEncoding::getInstance() {
 ManchesterEncoding &Manch = Manch.getInstance();
 
 /* ------------ CLASS METHODS (CONT.) ------------ */
-
-uint16_t ManchesterEncoding::getDeleteMe() {
-    return deleteme_var;
-}
 
 void ManchesterEncoding::beginTransmit(baud_rate_t baud_rate, uint8_t pin) {
     m_txpin = pin;
@@ -105,25 +99,42 @@ void ManchesterEncoding::transmitZero() {
 }
 
 void ManchesterEncoding::transmit(uint8_t message) {
-    
-    /**
-     * TEMP: transition detection for receiver, this will be later replaced by the sync header.
-     */
-    #if MANCH_CONVENTION == 0 // IEEE 802.3
-        transmitZero();
-    #elif MANCH_CONVENTION == 1 // GE THOMAS
-        transmitOne();
-    #endif // CONVENTION
+    // TODO: Cleanup implementation so encoders return an array of uint8_t instead of other data types
 
-    uint8_t mask = 0x80; // Transmit from MSb to LSb
-    for (uint8_t bit = 0; bit < 8; bit++) {
-        if (mask & message) {
-            transmitOne();
-        } else {
-            transmitZero();
+    switch (m_flags & CHANNEL_ENC)
+    {
+    case CHANNEL_ENC:
+        {
+        uint16_t encoded_message = encodeData(message);
+
+        uint16_t mask_1 = 0x8000; // Transmit from MSb to LSb
+        for (uint8_t bit = 0; bit < 16; bit++) {
+            if (mask_1 & encoded_message) {
+                transmitOne();
+            } else {
+                transmitZero();
+            }
+            mask_1 >>= 1;
         }
-        mask >>= 1;
+        }
+        break;
+    
+    default:
+        {
+        uint8_t mask = 0x80; // Transmit from MSb to LSb
+        for (uint8_t bit = 0; bit < 8; bit++) {
+            if (mask & message) {
+                transmitOne();
+            } else {
+                transmitZero();
+            }
+            mask >>= 1;
+        }
+        }
+        break;
     }
+
+    
 
     digitalWrite(m_txpin, LOW);
 
@@ -135,14 +146,26 @@ void ManchesterEncoding::decodeRawBits() {
      * 2. For each raw byte, identify the sync/header, extract the data and use the trailer (if channel encoding is present)
      * 3. Save the data to a delivery buffer
      * 
-     * ATTENTION: We assume that save_pos will not overpass read_pos for one or more full cycles
+     * ATTENTION: We assume that save_pos will not overpass read_pos for one or more full cycles.
+     * TODO: Re-implement this section.
      */
 
     while (g_buffer_read_pos != g_buffer_save_pos) {
-        m_byte_buffer[m_buffer_save_pos] = g_rawbits_buffer[g_buffer_read_pos];
+        uint8_t message = g_rawbits_buffer[g_buffer_read_pos];
 
-        m_buffer_save_pos = (m_buffer_save_pos + 1) % (MANCH_RECV_BUFFER_SIZE / 2);
         g_buffer_read_pos = (g_buffer_read_pos + 1) % MANCH_RECV_BUFFER_SIZE;
+
+        // We identify if there is a header present
+        if ( (message & 0xf0) == (MANCH_SYNC_HEADER << 4) ) {
+            m_byte_buffer[m_buffer_save_pos] = 0;
+            m_byte_buffer[m_buffer_save_pos] |= (message & 0x0f) << 4;
+        } 
+        else if ( (message & 0x0f) == MANCH_SYNC_TRAILER ) {
+            m_byte_buffer[m_buffer_save_pos] |= (message & 0xf0) >> 4;
+            m_buffer_save_pos = (m_buffer_save_pos + 1) % (MANCH_RECV_BUFFER_SIZE / 2);
+        }
+
+        
     }
 
 }
@@ -157,6 +180,17 @@ bool ManchesterEncoding::getData(uint8_t *data) {
     }
 
     return false;
+}
+
+uint16_t ManchesterEncoding::encodeData(uint8_t data) {
+    uint16_t encoded_message = 0;
+    encoded_message |= MANCH_SYNC_HEADER;
+    encoded_message <<= 8;
+    encoded_message |= data;
+    encoded_message <<= 4;
+    encoded_message |= MANCH_SYNC_TRAILER; 
+
+    return encoded_message;
 }
 
 /* ------------ STANDALONE FUNCTIONS ------------ */
@@ -225,26 +259,22 @@ void IRAM_ATTR saveReceivedMidbit(uint16_t midbit_val) {
         // Depending on the convention, we speed up the midbit decoding by just looking at 1 bit 
         // [!] WARNING: this does not catch invalid raw_bits.
         #if MANCH_CONVENTION == 0 // IEEE 802.3
-        uint8_t i = 1;
+        int8_t i = 16;
         #elif MANCH_CONVENTION == 1 // GE THOMAS
-        uint8_t i = 0;
+        int8_t i = 15;
         #endif // CONVENTION
 
         uint16_t mask = 0x01;
         uint8_t raw_bits = 0x00;
-        for (; i < 16; i += 2)
+        for (; i >= 0; i -= 2)
         {
-            raw_bits |= midbit_values_received & mask;
             raw_bits <<= 1;
-            mask <<= i;
+            raw_bits |= (midbit_values_received >> i) & mask;
         }
         
         // Save the raw bit to a buffer
         g_rawbits_buffer[g_buffer_save_pos] = raw_bits;
         g_buffer_save_pos = (g_buffer_save_pos + 1) % MANCH_RECV_BUFFER_SIZE;
-
-        // TODO: Delete
-        deleteme_var = midbit_values_received;
 
     }
 

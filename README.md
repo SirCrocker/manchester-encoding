@@ -5,7 +5,8 @@
 Current implementation done only for the ESP8266
 
 #### Todo:
-- [ ] Implement sync (header+trailer should add 1 byte in length!)
+- [ ] Test sync and trailer (they are implemented awfully, but in the meantime its _ok_)
+- [x] Implement sync (header+trailer should add 1 byte in length!)
 - [ ] Implement it
 - [x] Check if the receiver method for identifying 1s and 0s works or if a more relaxed implementation is needed.
 
