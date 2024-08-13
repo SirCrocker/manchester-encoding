@@ -33,7 +33,7 @@ typedef enum baudRates {
     BR_1200   = 1200,
     BR_2400   = 2400,
     BR_4800   = 4800,
-    BR_9600   = 9600,  // Untested
+    BR_9600   = 9600,
     BR_19200  = 19200,  // Untested
     BR_38400  = 38400,  // Untested
     BR_57600  = 57600,  // Untested
@@ -46,6 +46,11 @@ typedef enum rxState {
     RX_IDLE,
     RX_RECEIVING
 } rx_state_t;
+
+typedef enum flags {
+    CHANNEL_ENC = 1,
+    USELESS_FLAG = 2
+} flag_t;
 
 /************************** 
 -- MACROs -- 
@@ -60,8 +65,16 @@ typedef enum rxState {
 
 #define MANCH_SAMPLES_PER_MIDBIT 3  // Samples per mid-bit
 #define MANCH_IDLE_CHECK_VALUE 0x80
-#define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - MANCH_SAMPLES_PER_MIDBIT * 3
-#define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + MANCH_SAMPLES_PER_MIDBIT * 3
+#define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - MANCH_SAMPLES_PER_MIDBIT * 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
+#define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + MANCH_SAMPLES_PER_MIDBIT * 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
+
+#if MANCH_CONVENTION == 0 // IEEE802.3
+#define MANCH_SYNC_HEADER 0x0a
+#elif MANCH_CONVENTION == 1 // THOMAS
+#define MANCH_SYNC_HEADER 0x05
+#endif // MANCH_SYNC_HEADER
+
+#define MANCH_SYNC_TRAILER 0x0f
 
 /************************** 
 -- CLASSES & FUNCTIONS -- 
@@ -85,6 +98,8 @@ public:
      * @return
      * 
      * @related beginReceive
+     * 
+     * @todo Implement parameter that is a flag (it will indicate if we want to use channel encoding or not)
      */
     void beginTransmit(baud_rate_t baud_rate, uint8_t pin);
     
@@ -99,6 +114,8 @@ public:
      * @return
      * 
      * @related beginTransmit
+     * 
+     * @todo Implement parameter that is a flag (it will indicate if we want to use channel encoding or not)
      */
     void beginReceive(baud_rate_t baud_rate, uint8_t pin);
 
@@ -121,8 +138,6 @@ public:
      * @return bool that determines if data was available.
      */
     bool getData(uint8_t *data);
-
-    uint16_t getDeleteMe();
 
 private:
     ManchesterEncoding() = default;
@@ -152,6 +167,16 @@ private:
      */
     void decodeRawBits();
 
+    /**
+     * @brief Implements channel encoding over the data (1 byte).
+     * 
+     * @details The channel encoding corresponds to a sync preamble and trailer of 0x0f. This is very basic and wasteful,
+     * but the idea is that it demonstrates that the encoder/decoder works.
+     * 
+     * @return the encoded data as uint16_t
+     */
+    uint16_t encodeData(uint8_t data);
+
     uint8_t m_txpin;
     uint8_t m_rxpin;
     uint32_t m_ticks_sample; // Ticks per sample
@@ -160,6 +185,8 @@ private:
     uint8_t m_byte_buffer[MANCH_RECV_BUFFER_SIZE / 2];
     uint8_t m_buffer_read_pos;
     uint8_t m_buffer_save_pos;
+
+    flag_t m_flags = CHANNEL_ENC;
 
 };
 

@@ -23,10 +23,10 @@ void loop() {
     uint8_t data = 0;
 
     if (Manch.getData(&data)) {
-        Serial.println("--------");
+        Serial.print("--------");
+        printBinary(data);
+        Serial.println("");
     }
-        printBinary(Manch.getDeleteMe());
-        Serial.println();
     // }
 
 }
