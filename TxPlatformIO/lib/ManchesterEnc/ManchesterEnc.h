@@ -47,11 +47,6 @@ typedef enum rxState {
     RX_RECEIVING
 } rx_state_t;
 
-typedef enum flags {
-    CHANNEL_ENC = 1,
-    USELESS_FLAG = 2
-} flag_t;
-
 /************************** 
 -- MACROs -- 
 *************************/
@@ -61,6 +56,12 @@ typedef enum flags {
 #define MANCH_CONVENTION IEEE802_3
 #endif // MANCH_CONVENTION
 
+#if MANCH_CONVENTION == 0 // IEEE802.3
+#define MANCH_SYNC_HEADER 0x0a
+#elif MANCH_CONVENTION == 1 // THOMAS
+#define MANCH_SYNC_HEADER 0x05
+#endif // MANCH_SYNC_HEADER
+
 #define MANCH_RECV_BUFFER_SIZE 64
 
 #define MANCH_SAMPLES_PER_MIDBIT 3  // Samples per mid-bit
@@ -68,13 +69,11 @@ typedef enum flags {
 #define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - MANCH_SAMPLES_PER_MIDBIT * 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
 #define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + MANCH_SAMPLES_PER_MIDBIT * 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
 
-#if MANCH_CONVENTION == 0 // IEEE802.3
-#define MANCH_SYNC_HEADER 0x0a
-#elif MANCH_CONVENTION == 1 // THOMAS
-#define MANCH_SYNC_HEADER 0x05
-#endif // MANCH_SYNC_HEADER
-
 #define MANCH_SYNC_TRAILER 0x0f
+
+#define MFLAG_NONE          0       // No flags
+#define MFLAG_CHANNEL_ENC   1 << 0  // Apply channel encoding (default coding)
+#define MFLAG_ALWAYS_ONE    1 << 2  // Transmitter is one when inactive
 
 /************************** 
 -- CLASSES & FUNCTIONS -- 
@@ -102,6 +101,23 @@ public:
      * @todo Implement parameter that is a flag (it will indicate if we want to use channel encoding or not)
      */
     void beginTransmit(baud_rate_t baud_rate, uint8_t pin);
+
+    /**
+     * @brief Setups the transmission
+     * 
+     * @param baud_rate baud rate with which the data will be sent
+     * @param pin pin that will send the data
+     * @param flags set options via flags (flags are prefixed with MFLAG)
+     * 
+     * @attention baud rate must be the same as the one on the receiver
+     * 
+     * @return
+     * 
+     * @related beginReceive
+     * 
+     * @todo Implement parameter that is a flag (it will indicate if we want to use channel encoding or not)
+     */
+    void beginTransmit(baud_rate_t baud_rate, uint8_t pin, uint16_t flags);
     
     /**
      * @brief Setups the reception
@@ -118,6 +134,23 @@ public:
      * @todo Implement parameter that is a flag (it will indicate if we want to use channel encoding or not)
      */
     void beginReceive(baud_rate_t baud_rate, uint8_t pin);
+
+    /**
+     * @brief Setups the reception
+     * 
+     * @param baud_rate baud rate with which the data was transmitted
+     * @param pin pin that will read the received values
+     * @param flags set options via flags (flags are prefixed with MFLAG)
+     * 
+     * @attention baud rate must be the same as the one on the transmitter
+     * 
+     * @return
+     * 
+     * @related beginTransmit
+     * 
+     * @todo Implement parameter that is a flag (it will indicate if we want to use channel encoding or not)
+     */
+    void beginReceive(baud_rate_t baud_rate, uint8_t pin, uint16_t flags);
 
     /**
      * @brief Transmit a byte using manchester encoding.
@@ -175,7 +208,16 @@ private:
      * 
      * @return the encoded data as uint16_t
      */
-    uint16_t encodeData(uint8_t data);
+    uint8_t* encodeData(uint8_t data, size_t *size);
+
+    /**
+     * @brief todo
+     * 
+     * @details todo
+     * 
+     * @return todo
+     */
+    bool decodeData(uint8_t data, uint8_t *decoded_message);
 
     uint8_t m_txpin;
     uint8_t m_rxpin;
@@ -186,34 +228,9 @@ private:
     uint8_t m_buffer_read_pos;
     uint8_t m_buffer_save_pos;
 
-    flag_t m_flags = CHANNEL_ENC;
+    uint16_t m_flags = MFLAG_NONE;
 
 };
-
-/**
- * @brief Reads the value from the receive pin and determines if a valid bit
- * was received, then stores it for future processing.
- * 
- * @note This function will be used in an interrupt.
- * 
- * @link https://arduino-esp8266.readthedocs.io/en/latest/reference.html#interrupts
- * 
- * @return
- */
-static void interruptFunction();
-
-/**
- * @brief Saves a midbit value
- * 
- * @param midbit_val midbit value to save (1 or 0)
- * 
- * @note This function will be used in an interrupt.
- * 
- * @link https://arduino-esp8266.readthedocs.io/en/latest/reference.html#interrupts
- * 
- * @return
- */
-static void saveReceivedMidbit(uint16_t midbit_val);
 
 extern ManchesterEncoding &Manch;
 

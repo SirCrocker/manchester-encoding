@@ -5,9 +5,9 @@
 
 #define MANCH_RECV_PIN D6
 
-void printBinary(uint16_t value)
+void printBinary(uint8_t value)
 {
-    for ( uint16_t mask = 1 << 15; mask; mask >>= 1 )
+    for ( uint8_t mask = 1 << 7; mask; mask >>= 1 )
     {
         Serial.print(value & mask ? 1 : 0);
     }
@@ -15,7 +15,7 @@ void printBinary(uint16_t value)
 
 void setup() {
     Serial.begin(115200);
-    Manch.beginReceive(BR_9600, MANCH_RECV_PIN);
+    Manch.beginReceive(BR_9600, MANCH_RECV_PIN, MFLAG_NONE);
 }
 
 void loop() {
@@ -23,7 +23,7 @@ void loop() {
     uint8_t data = 0;
 
     if (Manch.getData(&data)) {
-        Serial.print("--------");
+        Serial.print("--------> ");
         printBinary(data);
         Serial.println("");
     }

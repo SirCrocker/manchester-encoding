@@ -1,5 +1,32 @@
 #include "ManchesterEnc.h"
 
+/* ------------ STATIC FUNCTIONS ------------ */
+
+/**
+ * @brief Reads the value from the receive pin and determines if a valid bit
+ * was received, then stores it for future processing.
+ * 
+ * @note This function will be used in an interrupt.
+ * 
+ * @link https://arduino-esp8266.readthedocs.io/en/latest/reference.html#interrupts
+ * 
+ * @return
+ */
+static void interruptFunction();
+
+/**
+ * @brief Saves a midbit value
+ * 
+ * @param midbit_val midbit value to save (1 or 0)
+ * 
+ * @note This function will be used in an interrupt.
+ * 
+ * @link https://arduino-esp8266.readthedocs.io/en/latest/reference.html#interrupts
+ * 
+ * @return
+ */
+static void saveReceivedMidbit(uint16_t midbit_val);
+
 /* ------------ GLOBAL VARIABLES ------------ */
 
 static uint8_t g_rx_pin = 0x64;  // Placeholder value, ESP8266 does not have 100 pins
@@ -25,6 +52,12 @@ ManchesterEncoding &Manch = Manch.getInstance();
 
 /* ------------ CLASS METHODS (CONT.) ------------ */
 
+void ManchesterEncoding::beginTransmit(baud_rate_t baud_rate, uint8_t pin, uint16_t flags) {
+    m_flags = flags;
+
+    beginTransmit(baud_rate, pin);
+}
+
 void ManchesterEncoding::beginTransmit(baud_rate_t baud_rate, uint8_t pin) {
     m_txpin = pin;
 
@@ -33,6 +66,12 @@ void ManchesterEncoding::beginTransmit(baud_rate_t baud_rate, uint8_t pin) {
 
     m_txdelay = 1e6 / (double)baud_rate; // Delay in microseconds
 
+}
+
+void ManchesterEncoding::beginReceive(baud_rate_t baud_rate, uint8_t pin, uint16_t flags) {
+    m_flags = flags;
+
+    beginReceive(baud_rate, pin);
 }
 
 void ManchesterEncoding::beginReceive(baud_rate_t baud_rate, uint8_t pin) {
@@ -98,45 +137,41 @@ void ManchesterEncoding::transmitZero() {
 #endif // CONVENTION
 }
 
-void ManchesterEncoding::transmit(uint8_t message) {
-    // TODO: Cleanup implementation so encoders return an array of uint8_t instead of other data types
+void ManchesterEncoding::transmit(uint8_t message) { // TODO: NOT WORKING. PROBLEMAS CON POINTERS
 
-    switch (m_flags & CHANNEL_ENC)
+    size_t num_of_bytes = 0;
+    uint8_t *encoded_message = 0;
+    
+    Serial.println("DEBUG 1"); // TODO: NOT WORKING (it works until this points)
+
+    switch (m_flags & MFLAG_CHANNEL_ENC)
     {
-    case CHANNEL_ENC:
-        {
-        uint16_t encoded_message = encodeData(message);
-
-        uint16_t mask_1 = 0x8000; // Transmit from MSb to LSb
-        for (uint8_t bit = 0; bit < 16; bit++) {
-            if (mask_1 & encoded_message) {
-                transmitOne();
-            } else {
-                transmitZero();
-            }
-            mask_1 >>= 1;
-        }
-        }
+    case MFLAG_CHANNEL_ENC:
+        encoded_message = encodeData(message, &num_of_bytes);
         break;
     
     default:
-        {
+        *encoded_message = message;
+        num_of_bytes = 1;
+        break;
+    }
+
+    for (size_t ind = 0; ind < num_of_bytes; ind++) {
+        uint8_t msg_to_send = encoded_message[ind];
+
         uint8_t mask = 0x80; // Transmit from MSb to LSb
         for (uint8_t bit = 0; bit < 8; bit++) {
-            if (mask & message) {
+            if (mask & msg_to_send) {
                 transmitOne();
             } else {
                 transmitZero();
             }
             mask >>= 1;
         }
-        }
-        break;
+        
     }
 
-    
-
-    digitalWrite(m_txpin, LOW);
+    digitalWrite(m_txpin, (m_flags & MFLAG_ALWAYS_ONE) ? HIGH: LOW);
 
 }
 
@@ -146,27 +181,44 @@ void ManchesterEncoding::decodeRawBits() {
      * 2. For each raw byte, identify the sync/header, extract the data and use the trailer (if channel encoding is present)
      * 3. Save the data to a delivery buffer
      * 
-     * ATTENTION: We assume that save_pos will not overpass read_pos for one or more full cycles.
-     * TODO: Re-implement this section.
+     * ATTENTION: We assume that save_pos will not overpass read_pos for one or more full cycles
      */
 
-    while (g_buffer_read_pos != g_buffer_save_pos) {
-        uint8_t message = g_rawbits_buffer[g_buffer_read_pos];
+    switch (m_flags & MFLAG_CHANNEL_ENC)
+    {
+    case MFLAG_CHANNEL_ENC:
+        {
+        bool decoded = false;
+        uint8_t *decoded_message = 0;
 
-        g_buffer_read_pos = (g_buffer_read_pos + 1) % MANCH_RECV_BUFFER_SIZE;
+        while (g_buffer_read_pos != g_buffer_save_pos) {
+            
+            g_buffer_read_pos = (g_buffer_read_pos + 1) % MANCH_RECV_BUFFER_SIZE;
+            decoded = decodeData(g_rawbits_buffer[g_buffer_read_pos], decoded_message);
 
-        // We identify if there is a header present
-        if ( (message & 0xf0) == (MANCH_SYNC_HEADER << 4) ) {
-            m_byte_buffer[m_buffer_save_pos] = 0;
-            m_byte_buffer[m_buffer_save_pos] |= (message & 0x0f) << 4;
-        } 
-        else if ( (message & 0x0f) == MANCH_SYNC_TRAILER ) {
-            m_byte_buffer[m_buffer_save_pos] |= (message & 0xf0) >> 4;
+            if (decoded) {
+                m_byte_buffer[m_buffer_save_pos] = *decoded_message;
+                m_buffer_save_pos = (m_buffer_save_pos + 1) % (MANCH_RECV_BUFFER_SIZE / 2);
+            }
+
+        }
+        }
+        break;
+    
+    default:
+        // No encoding decoder
+        while (g_buffer_read_pos != g_buffer_save_pos) {
+            m_byte_buffer[m_buffer_save_pos] = g_rawbits_buffer[g_buffer_read_pos];
+
             m_buffer_save_pos = (m_buffer_save_pos + 1) % (MANCH_RECV_BUFFER_SIZE / 2);
+            g_buffer_read_pos = (g_buffer_read_pos + 1) % MANCH_RECV_BUFFER_SIZE;
         }
 
-        
+        break;
     }
+
+
+    
 
 }
 
@@ -182,15 +234,29 @@ bool ManchesterEncoding::getData(uint8_t *data) {
     return false;
 }
 
-uint16_t ManchesterEncoding::encodeData(uint8_t data) {
-    uint16_t encoded_message = 0;
-    encoded_message |= MANCH_SYNC_HEADER;
-    encoded_message <<= 8;
-    encoded_message |= data;
-    encoded_message <<= 4;
-    encoded_message |= MANCH_SYNC_TRAILER; 
+uint8_t* ManchesterEncoding::encodeData(uint8_t data, size_t* size) { 
+    // Encoding by sending the same message thrice (repetition code of block-length three)
+    *size = 3;
+    static uint8_t encoded_message[3] = {data, data, data}; // No dynamic allocation in embedded
 
     return encoded_message;
+}
+
+bool ManchesterEncoding::decodeData(uint8_t data, uint8_t *decoded_message) {   // TODO: NOT WORKING
+    // Decoding by receiving the same message thrice (repetition code of block-length three)
+    static uint8_t vals[3] = {0, 0, 0}; // No dynamic allocation in embedded
+    static uint8_t num_saved = 0;
+
+    if (num_saved == 3) {
+        // decode
+        *decoded_message = (vals[0] & (vals[1] | vals[2])) | (vals[1] & vals[2]);   // Bitwise Majority 3
+        num_saved = 0;
+        return true;
+    }
+
+    vals[num_saved] = data;
+    num_saved++;
+    return false;
 }
 
 /* ------------ STANDALONE FUNCTIONS ------------ */
