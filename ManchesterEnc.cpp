@@ -1,5 +1,7 @@
 #include "ManchesterEnc.h"
 
+extern uint32_t G_DELETE = 0;
+
 /* ------------ STATIC FUNCTIONS ------------ */
 
 /**
@@ -179,6 +181,9 @@ void ManchesterEncoding::transmit(uint8_t message) {
     // We check if the default behaviour of the transmitter is HIGH or LOW and act accordingly
     digitalWrite(m_txpin, (m_flags & MFLAG_ALWAYS_ONE) ? HIGH: LOW);
 
+    // This works like a trailer (it makes the receiver go to IDLE state)
+    delayMicroseconds(m_txdelay *12);
+
 }
 
 void ManchesterEncoding::decodeRawBits() {
@@ -235,7 +240,12 @@ bool ManchesterEncoding::getData(uint8_t *data) {
 uint8_t* ManchesterEncoding::encodeData(uint8_t data, size_t* size) { 
     // Encoding by sending the same message thrice (repetition code of block-length three)
     *size = 3;
-    static uint8_t encoded_message[3] = {data, data, data}; // No dynamic allocation in embedded
+    static uint8_t encoded_message[3] = {0}; // No dynamic allocation in embedded
+
+    // Change buffer value
+    encoded_message[0] = data;
+    encoded_message[1] = data;
+    encoded_message[2] = data;
 
     return encoded_message;
 }
@@ -244,6 +254,7 @@ bool ManchesterEncoding::decodeData(uint8_t data, uint8_t *decoded_message) {
     // Decoding by receiving the same message thrice (repetition code of block-length three)
     static uint8_t vals[3] = {0, 0, 0}; // No dynamic allocation in embedded
     static uint8_t num_saved = 0;
+    vals[num_saved] = data;
 
     if (num_saved == 2) { // Index starts at 0
         // decode
@@ -252,7 +263,6 @@ bool ManchesterEncoding::decodeData(uint8_t data, uint8_t *decoded_message) {
         return true;
     }
 
-    vals[num_saved] = data;
     num_saved++;
     return false;
 }
@@ -260,6 +270,7 @@ bool ManchesterEncoding::decodeData(uint8_t data, uint8_t *decoded_message) {
 /* ------------ STANDALONE FUNCTIONS ------------ */
 
 void IRAM_ATTR interruptFunction() {
+    uint32_t ini = esp_get_cycle_count();
     uint8_t val_read = digitalRead(g_rx_pin);
     
     // Check for transition
@@ -281,17 +292,21 @@ void IRAM_ATTR interruptFunction() {
         
         if (g_sample_counter >= MANCH_SAMPLES_PER_MIDBIT)
         {
-            if (g_samples_vals & G_SAMPLE_MASK) // We received MANCH_SAMPLES 1s
+            uint8_t rec = g_samples_vals & G_SAMPLE_MASK;
+
+            if (rec == G_SAMPLE_MASK) // We received MANCH_SAMPLES 1s
             {
                 /* Save a 1 (mid-bit) */
                 g_idle_check_num--;
                 saveReceivedMidbit(1);
 
-            } else { // We received MANCH_SAMPLES 0s
+            } else if (rec == 0x00) { // We received MANCH_SAMPLES 0s
                 /* Save a 0 (mid-bit)*/
                 g_idle_check_num++;
                 saveReceivedMidbit(0);
 
+            } else {
+                g_state = RX_IDLE;
             }
 
             g_sample_counter = 0;
@@ -308,9 +323,11 @@ void IRAM_ATTR interruptFunction() {
     default:
         g_sample_counter = 0;
         g_idle_check_num = MANCH_IDLE_CHECK_VALUE;
+        g_num_saved_midbit = 0;
         break;
     }   
     
+    G_DELETE = (uint8_t)g_state;//esp_get_cycle_count() - ini;
 }
 
 void IRAM_ATTR saveReceivedMidbit(uint16_t midbit_val) {

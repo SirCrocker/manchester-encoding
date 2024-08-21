@@ -7,6 +7,7 @@
 **************************/
 #include <Arduino.h>
 
+extern uint32_t G_DELETE;
 
 /**************************
 -- ENUMS -- 
@@ -67,8 +68,8 @@ typedef enum rxState {
 
 #define MANCH_SAMPLES_PER_MIDBIT 3  // Samples per mid-bit
 #define MANCH_IDLE_CHECK_VALUE 0x80
-#define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - MANCH_SAMPLES_PER_MIDBIT * 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
-#define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + MANCH_SAMPLES_PER_MIDBIT * 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
+#define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
+#define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
 
 #define MANCH_SYNC_TRAILER 0x0f
 
