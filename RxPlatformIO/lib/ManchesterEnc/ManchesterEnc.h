@@ -34,8 +34,9 @@ typedef enum baudRates {
     BR_2400   = 2400,
     BR_4800   = 4800,
     BR_9600   = 9600,
-    BR_19200  = 19200,  // Untested
-    BR_38400  = 38400,  // Untested
+    BR_19200  = 19200,
+    BR_38400  = 38400,
+    BR_50000  = 50000,
     BR_57600  = 57600,  // Untested
     BR_76800  = 76800,  // Untested
     BR_115200 = 115200  // Untested  
@@ -71,9 +72,9 @@ typedef enum rxState {
 
 #define MANCH_SYNC_TRAILER 0x0f
 
-#define MFLAG_NONE          0       // No flags
-#define MFLAG_CHANNEL_ENC   1 << 0  // Apply channel encoding (default coding)
-#define MFLAG_ALWAYS_ONE    1 << 2  // Transmitter is one when inactive
+#define MFLAG_NONE          0       // No flags.
+#define MFLAG_CHANNEL_ENC   1 << 0  // Apply channel encoding (default coding).
+#define MFLAG_ALWAYS_ONE    1 << 2  // Set transmitter to always on.
 
 /************************** 
 -- CLASSES & FUNCTIONS -- 
@@ -196,6 +197,8 @@ private:
     /**
      * @brief Decodes the raw bits, removing headers and trailers, leaving only the data.
      * 
+     * @details Raw bits are the ones obtained after manchester decoding.
+     * 
      * @return
      */
     void decodeRawBits();
@@ -203,19 +206,31 @@ private:
     /**
      * @brief Implements channel encoding over the data (1 byte).
      * 
-     * @details The channel encoding corresponds to a sync preamble and trailer of 0x0f. This is very basic and wasteful,
-     * but the idea is that it demonstrates that the encoder/decoder works.
+     * @param data the byte to encode.
+     * @param size the size of the buffer that has the encoded bytes.
      * 
-     * @return the encoded data as uint16_t
+     * @details The channel encoding corresponds to repetition code of block-length three, which means
+     * that each byte is sent three times. This has a code rate of 1/3.
+     * 
+     * @attention It currently only supports single byte encoding/decoding.
+     * 
+     * @return a pointer to the first element of an array containing the bytes to sent.
      */
     uint8_t* encodeData(uint8_t data, size_t *size);
 
     /**
-     * @brief todo
+     * @brief Implements channel decoding over the data (3 bytes). The function is called with each
+     * byte received, and when then sufficient number of bytes are received, it decodes them.
      * 
-     * @details todo
+     * @param data the bytes in order of reception.
+     * @param decoded_message a pointer where the decoded message will be saved.
      * 
-     * @return todo
+     * @details The channel encoding corresponds to repetition code of block-length three, which means
+     * that each byte is sent three times. This has a code rate of 1/3.
+     * 
+     * @attention It currently only supports single byte encoding/decoding.
+     * 
+     * @return true if a byte was decoded, false otherwise.
      */
     bool decodeData(uint8_t data, uint8_t *decoded_message);
 

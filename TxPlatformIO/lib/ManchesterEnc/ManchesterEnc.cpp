@@ -66,6 +66,9 @@ void ManchesterEncoding::beginTransmit(baud_rate_t baud_rate, uint8_t pin) {
 
     m_txdelay = 1e6 / (double)baud_rate; // Delay in microseconds
 
+    // TODO: A more sophisticated method (this is the time it takes to digitalWrite)
+    m_txdelay -= 2;
+
 }
 
 void ManchesterEncoding::beginReceive(baud_rate_t baud_rate, uint8_t pin, uint16_t flags) {
@@ -137,12 +140,11 @@ void ManchesterEncoding::transmitZero() {
 #endif // CONVENTION
 }
 
-void ManchesterEncoding::transmit(uint8_t message) { // TODO: NOT WORKING. PROBLEMAS CON POINTERS
+void ManchesterEncoding::transmit(uint8_t message) {
 
+    // Before sending we check if encoding is active and apply it if it is
     size_t num_of_bytes = 0;
-    uint8_t *encoded_message = 0;
-    
-    Serial.println("DEBUG 1"); // TODO: NOT WORKING (it works until this points)
+    uint8_t *encoded_message = nullptr;
 
     switch (m_flags & MFLAG_CHANNEL_ENC)
     {
@@ -151,14 +153,17 @@ void ManchesterEncoding::transmit(uint8_t message) { // TODO: NOT WORKING. PROBL
         break;
     
     default:
-        *encoded_message = message;
+        // No encoding, we send 1 byte
+        encoded_message = &message;
         num_of_bytes = 1;
         break;
     }
 
+    // When data is encoded, more bytes will be sent (num_of_bytes)
     for (size_t ind = 0; ind < num_of_bytes; ind++) {
         uint8_t msg_to_send = encoded_message[ind];
 
+        // Transmit a byte
         uint8_t mask = 0x80; // Transmit from MSb to LSb
         for (uint8_t bit = 0; bit < 8; bit++) {
             if (mask & msg_to_send) {
@@ -171,33 +176,29 @@ void ManchesterEncoding::transmit(uint8_t message) { // TODO: NOT WORKING. PROBL
         
     }
 
+    // We check if the default behaviour of the transmitter is HIGH or LOW and act accordingly
     digitalWrite(m_txpin, (m_flags & MFLAG_ALWAYS_ONE) ? HIGH: LOW);
 
 }
 
 void ManchesterEncoding::decodeRawBits() {
-    /** IMPLEMENT:
-     * 1. Go through the raw bits in the buffer, until read_pos == save_pos
-     * 2. For each raw byte, identify the sync/header, extract the data and use the trailer (if channel encoding is present)
-     * 3. Save the data to a delivery buffer
-     * 
-     * ATTENTION: We assume that save_pos will not overpass read_pos for one or more full cycles
-     */
+    // If channel encoding, decode the bits, otherwise return them raw.
 
     switch (m_flags & MFLAG_CHANNEL_ENC)
     {
     case MFLAG_CHANNEL_ENC:
         {
+        // Decoder
         bool decoded = false;
-        uint8_t *decoded_message = 0;
+        uint8_t decoded_message = 0;
 
         while (g_buffer_read_pos != g_buffer_save_pos) {
             
+            decoded = decodeData(g_rawbits_buffer[g_buffer_read_pos], &decoded_message);
             g_buffer_read_pos = (g_buffer_read_pos + 1) % MANCH_RECV_BUFFER_SIZE;
-            decoded = decodeData(g_rawbits_buffer[g_buffer_read_pos], decoded_message);
 
             if (decoded) {
-                m_byte_buffer[m_buffer_save_pos] = *decoded_message;
+                m_byte_buffer[m_buffer_save_pos] = decoded_message;
                 m_buffer_save_pos = (m_buffer_save_pos + 1) % (MANCH_RECV_BUFFER_SIZE / 2);
             }
 
@@ -206,7 +207,7 @@ void ManchesterEncoding::decodeRawBits() {
         break;
     
     default:
-        // No encoding decoder
+        // Pass them raw
         while (g_buffer_read_pos != g_buffer_save_pos) {
             m_byte_buffer[m_buffer_save_pos] = g_rawbits_buffer[g_buffer_read_pos];
 
@@ -216,9 +217,6 @@ void ManchesterEncoding::decodeRawBits() {
 
         break;
     }
-
-
-    
 
 }
 
@@ -242,12 +240,12 @@ uint8_t* ManchesterEncoding::encodeData(uint8_t data, size_t* size) {
     return encoded_message;
 }
 
-bool ManchesterEncoding::decodeData(uint8_t data, uint8_t *decoded_message) {   // TODO: NOT WORKING
+bool ManchesterEncoding::decodeData(uint8_t data, uint8_t *decoded_message) {
     // Decoding by receiving the same message thrice (repetition code of block-length three)
     static uint8_t vals[3] = {0, 0, 0}; // No dynamic allocation in embedded
     static uint8_t num_saved = 0;
 
-    if (num_saved == 3) {
+    if (num_saved == 2) { // Index starts at 0
         // decode
         *decoded_message = (vals[0] & (vals[1] | vals[2])) | (vals[1] & vals[2]);   // Bitwise Majority 3
         num_saved = 0;

@@ -15,7 +15,7 @@ void printBinary(uint8_t value)
 
 void setup() {
     Serial.begin(115200);
-    Manch.beginReceive(BR_9600, MANCH_RECV_PIN, MFLAG_NONE);
+    Manch.beginReceive(BR_50000, MANCH_RECV_PIN, MFLAG_NONE);
 }
 
 void loop() {
@@ -23,9 +23,8 @@ void loop() {
     uint8_t data = 0;
 
     if (Manch.getData(&data)) {
-        Serial.print("--------> ");
-        printBinary(data);
-        Serial.println("");
+        Serial.print((char)data);
+
     }
     // }
 
