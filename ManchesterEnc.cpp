@@ -94,8 +94,8 @@ void ManchesterEncoding::beginReceive(baud_rate_t baud_rate, uint8_t pin) {
     pinMode(m_rxpin, INPUT);
 
     uint32_t midbit_ticks = uint32_t((double)CPU_CLK_FREQ / (double)baud_rate);  // Number of ticks per symbol (related to symbol rate)
-    m_ticks_sample = (uint32_t)((double)(midbit_ticks / MANCH_SAMPLES_PER_MIDBIT) * 0.9); // Ticks between samples per midbit
-    // m_ticks_sample = midbit_ticks / MANCH_SAMPLES_PER_MIDBIT; // Ticks between samples per midbit
+    m_ticks_sample = (uint32_t)((double)(midbit_ticks / MANCH_SAMPLES_PER_MIDBIT) * 0.95); // Ticks between samples per midbit (the 0.95 is heuristic)
+    // TODO: Further analysis on the sampling rate
 
     // Attach interrupts - I chose timer1 because timer0 is apparently used by WiFi
     noInterrupts();
