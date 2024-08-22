@@ -5,7 +5,7 @@
 Current implementation done only for the ESP8266.
 
 #### Todo:
-- [ ] Implement it
+- [ ] Implement variable buffer size (definable at setup)
 - [ ] Implement way to define custom functions for encoding/decoding the data.
 - [ ] More thorough readme.
 
@@ -23,3 +23,11 @@ Current implementation done only for the ESP8266.
 **Based on**: 
  - ATMEL - Manchester Coding Basics [APPLICATION NOTE] - 9164B–AUTO–07/15
  - https://github.com/mchr3k/arduino-libs-manchester/tree/master
+
+
+ **Implementation Details**:
+ - Sync signal:
+ - "Trailer Signal"
+ - Sampling rate
+ - Detecting method
+ - If sending too much text at once, increase the buffer size
