@@ -7,8 +7,6 @@
 **************************/
 #include <Arduino.h>
 
-extern uint32_t G_DELETE;
-
 /**************************
 -- ENUMS -- 
 **************************/
@@ -29,15 +27,15 @@ typedef enum convention {
 Baud Rate to use, it is directly related to bandwidth, not data rate!
 */
 typedef enum baudRates {
-    BR_300    = 300,  
-    BR_600    = 600,
-    BR_1200   = 1200,
-    BR_2400   = 2400,
-    BR_4800   = 4800,
-    BR_9600   = 9600,
-    BR_19200  = 19200,
-    BR_38400  = 38400,
-    BR_50000  = 50000,
+    BR_300    = 300,    // Tested with Sync
+    BR_600    = 600,    // Tested without Sync
+    BR_1200   = 1200,   // Tested without sync
+    BR_2400   = 2400,   // Tested without sync
+    BR_4800   = 4800,   // Tested without sync
+    BR_9600   = 9600,   // Tested without sync
+    BR_19200  = 19200,  // Tested without sync
+    BR_38400  = 38400,  // Tested without sync
+    BR_50000  = 50000,  // Tested with Sync
     BR_57600  = 57600,  // Untested
     BR_76800  = 76800,  // Untested
     BR_115200 = 115200  // Untested  
@@ -46,6 +44,7 @@ typedef enum baudRates {
 
 typedef enum rxState {
     RX_IDLE,
+    RX_SYNC,
     RX_RECEIVING
 } rx_state_t;
 
@@ -58,21 +57,13 @@ typedef enum rxState {
 #define MANCH_CONVENTION IEEE802_3
 #endif // MANCH_CONVENTION
 
-#if MANCH_CONVENTION == 0 // IEEE802.3   12 lineas
-#define MANCH_SYNC_HEADER 0x0a
-#elif MANCH_CONVENTION == 1 // THOMAS
-#define MANCH_SYNC_HEADER 0x05
-#endif // MANCH_SYNC_HEADER
-
-#define MANCH_RECV_BUFFER_SIZE 200
+#define MANCH_RECV_BUFFER_SIZE 400
 
 #define MANCH_SAMPLES_PER_MIDBIT 3  // Samples per mid-bit
 
-#define MANCH_SYNC_TRAILER 0x0f
-
 #define MFLAG_NONE          0       // No flags.
 #define MFLAG_CHANNEL_ENC   1 << 0  // Apply channel encoding (default coding).
-#define MFLAG_ALWAYS_ONE    1 << 2  // Set transmitter to always on.
+#define MFLAG_ALWAYS_ONE    1 << 2  // Set transmitter to always on. // TODO: UNTESTED
 
 /************************** 
 -- CLASSES & FUNCTIONS -- 

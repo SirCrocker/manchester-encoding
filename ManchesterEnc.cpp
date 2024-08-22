@@ -163,6 +163,10 @@ void ManchesterEncoding::transmit(uint8_t message) {
         break;
     }
 
+    // Sync signal, makes the receiver detect a transition and enter RX_RECEIVING
+    digitalWrite(m_txpin, (MFLAG_ALWAYS_ONE & m_flags) ? LOW: HIGH);
+    delayMicroseconds(m_txdelay);
+
     // When data is encoded, more bytes will be sent (num_of_bytes)
     for (size_t ind = 0; ind < num_of_bytes; ind++) {
         uint8_t msg_to_send = encoded_message[ind];
@@ -181,7 +185,7 @@ void ManchesterEncoding::transmit(uint8_t message) {
     }
 
     // We check if the default behaviour of the transmitter is HIGH or LOW and act accordingly
-    digitalWrite(m_txpin, (m_flags & MFLAG_ALWAYS_ONE) ? HIGH: LOW);
+    digitalWrite(m_txpin, (MFLAG_ALWAYS_ONE & m_flags) ? HIGH: LOW);
 
     // This works like a trailer (it makes the receiver go to IDLE state)
     delayMicroseconds(m_txdelay *12);
@@ -278,7 +282,13 @@ void IRAM_ATTR interruptFunction() {
     if (val_read != (g_samples_vals & 0x01)) {
         // Value transitioned
         g_sample_counter = 0;
-        g_state = RX_RECEIVING;
+        
+        /* If we are IDLE start SYNC, otherwise, continue receiving.
+        In the current SYNC implementation, no transitions occur during SYNC. */
+        if (g_state == RX_IDLE) {
+            g_state = RX_SYNC;
+        }
+
     }
 
     // Store value
@@ -288,6 +298,18 @@ void IRAM_ATTR interruptFunction() {
     // Depending on state do one thing or another
     switch (g_state)
     {
+    case RX_SYNC:
+        g_sample_counter++;
+
+        if (g_sample_counter >= MANCH_SAMPLES_PER_MIDBIT)
+        {
+            // If we enter, 3 equal values were received, the check for transition makes sure of that.
+            g_state = RX_RECEIVING;
+            g_sample_counter = 0;
+        }
+
+        break;
+
     case RX_RECEIVING:
         g_sample_counter++;
         
