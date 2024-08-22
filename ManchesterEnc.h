@@ -64,12 +64,9 @@ typedef enum rxState {
 #define MANCH_SYNC_HEADER 0x05
 #endif // MANCH_SYNC_HEADER
 
-#define MANCH_RECV_BUFFER_SIZE 64
+#define MANCH_RECV_BUFFER_SIZE 100
 
 #define MANCH_SAMPLES_PER_MIDBIT 3  // Samples per mid-bit
-#define MANCH_IDLE_CHECK_VALUE 0x80
-#define MANCH_IDLE_CHECK_LOWER_LIMIT MANCH_IDLE_CHECK_VALUE - 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
-#define MANCH_IDLE_CHECK_UPPER_LIMIT MANCH_IDLE_CHECK_VALUE + 3 // TODO: Replace MANCH_SAMPLES_... for a more adequate variable/value
 
 #define MANCH_SYNC_TRAILER 0x0f
 

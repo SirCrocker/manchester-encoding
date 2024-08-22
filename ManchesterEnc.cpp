@@ -1,7 +1,5 @@
 #include "ManchesterEnc.h"
 
-extern uint32_t G_DELETE = 0;
-
 /* ------------ STATIC FUNCTIONS ------------ */
 
 /**
@@ -37,7 +35,10 @@ static uint8_t G_SAMPLE_MASK = 0xff >> (8 - MANCH_SAMPLES_PER_MIDBIT);  // For c
 volatile static uint8_t g_samples_vals = 0x00;  // The read values will be saved here until a transition happens
 volatile static uint8_t g_sample_counter = 0x00; // Counts the number of samples taken (we expect MANCH_SAMPLES_PER_MIDBIT)
 volatile static rx_state_t g_state = RX_IDLE;  // Receiving State
-volatile static uint8_t g_idle_check_num = MANCH_IDLE_CHECK_VALUE;  // Number of saved raw_bits (should fluctuate around this value)
+
+volatile static uint8_t g_idle_check_ones = 0;  // Number of saved raw_bits (should fluctuate around this value)
+volatile static uint8_t g_idle_check_zeros = 0;  // Number of saved raw_bits (should fluctuate around this value)
+
 volatile static uint8_t g_rawbits_buffer[MANCH_RECV_BUFFER_SIZE] = {0};
 volatile static uint8_t g_buffer_save_pos = 0;
 volatile static uint8_t g_buffer_read_pos = 0;
@@ -93,7 +94,8 @@ void ManchesterEncoding::beginReceive(baud_rate_t baud_rate, uint8_t pin) {
     pinMode(m_rxpin, INPUT);
 
     uint32_t midbit_ticks = uint32_t((double)CPU_CLK_FREQ / (double)baud_rate);  // Number of ticks per symbol (related to symbol rate)
-    m_ticks_sample = midbit_ticks / MANCH_SAMPLES_PER_MIDBIT; // Ticks between samples per midbit
+    m_ticks_sample = (uint32_t)((double)(midbit_ticks / MANCH_SAMPLES_PER_MIDBIT) * 0.9); // Ticks between samples per midbit
+    // m_ticks_sample = midbit_ticks / MANCH_SAMPLES_PER_MIDBIT; // Ticks between samples per midbit
 
     // Attach interrupts - I chose timer1 because timer0 is apparently used by WiFi
     noInterrupts();
@@ -270,7 +272,6 @@ bool ManchesterEncoding::decodeData(uint8_t data, uint8_t *decoded_message) {
 /* ------------ STANDALONE FUNCTIONS ------------ */
 
 void IRAM_ATTR interruptFunction() {
-    uint32_t ini = esp_get_cycle_count();
     uint8_t val_read = digitalRead(g_rx_pin);
     
     // Check for transition
@@ -292,46 +293,58 @@ void IRAM_ATTR interruptFunction() {
         
         if (g_sample_counter >= MANCH_SAMPLES_PER_MIDBIT)
         {
-            uint8_t rec = g_samples_vals & G_SAMPLE_MASK;
+            // If we enter, 3 equal values were received, the check for transition makes sure of that.
 
-            if (rec == G_SAMPLE_MASK) // We received MANCH_SAMPLES 1s
+            if (g_samples_vals & G_SAMPLE_MASK) // We received MANCH_SAMPLES 1s
             {
                 /* Save a 1 (mid-bit) */
-                g_idle_check_num--;
-                saveReceivedMidbit(1);
+                g_idle_check_ones++;
+                if (g_idle_check_ones < 3) {
+                    saveReceivedMidbit(1);
+                } else {
+                    g_state = RX_IDLE;
+                    g_sample_counter = 0;
+                    g_num_saved_midbit = 0;
+                }
+                g_idle_check_zeros = 0;
 
-            } else if (rec == 0x00) { // We received MANCH_SAMPLES 0s
+            } else { // We received MANCH_SAMPLES 0s
                 /* Save a 0 (mid-bit)*/
-                g_idle_check_num++;
-                saveReceivedMidbit(0);
+                g_idle_check_zeros++;
 
-            } else {
-                g_state = RX_IDLE;
+                if (g_idle_check_zeros < 3) {
+                    saveReceivedMidbit(0);
+                } else {
+                    g_state = RX_IDLE;
+                    g_sample_counter = 0;
+                    g_num_saved_midbit = 0;
+                }
+                g_idle_check_ones = 0;
             }
 
             g_sample_counter = 0;
         }
         
-        if ( (g_idle_check_num < MANCH_IDLE_CHECK_LOWER_LIMIT) || g_idle_check_num > MANCH_IDLE_CHECK_UPPER_LIMIT ) {
-            g_state = RX_IDLE;
-            g_idle_check_num = MANCH_IDLE_CHECK_VALUE;
-            g_num_saved_midbit = 0;
-        }
         break;
     
     case RX_IDLE:
     default:
+        // Reset variables
         g_sample_counter = 0;
-        g_idle_check_num = MANCH_IDLE_CHECK_VALUE;
         g_num_saved_midbit = 0;
+        g_idle_check_ones = 0;
+        g_idle_check_zeros = 0;
         break;
     }   
     
-    G_DELETE = (uint8_t)g_state;//esp_get_cycle_count() - ini;
 }
 
 void IRAM_ATTR saveReceivedMidbit(uint16_t midbit_val) {
-    static uint16_t midbit_values_received = 0x00;
+    static uint16_t midbit_values_received = 0x0000;
+
+    midbit_values_received <<= 1;
+    midbit_values_received |= midbit_val;
+    g_num_saved_midbit++;
 
     // If we have received 16 midbits (or 8 raw bits) we read and save the raw bits
     if (g_num_saved_midbit == 16) {
@@ -352,14 +365,11 @@ void IRAM_ATTR saveReceivedMidbit(uint16_t midbit_val) {
             raw_bits <<= 1;
             raw_bits |= (midbit_values_received >> i) & mask;
         }
-        
+
         // Save the raw bit to a buffer
         g_rawbits_buffer[g_buffer_save_pos] = raw_bits;
         g_buffer_save_pos = (g_buffer_save_pos + 1) % MANCH_RECV_BUFFER_SIZE;
-
+        midbit_values_received = 0;
     }
 
-    midbit_values_received <<= 1;
-    midbit_values_received |= midbit_val;
-    g_num_saved_midbit++;
 }
