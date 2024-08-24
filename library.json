@@ -1,5 +1,5 @@
 {
-    "name": "ManchesterESP",
+    "name": "manchester-encoding",
     "version": "1.0.0-beta",
     "description": "Manchester library for ESP8266 MCUs",
     "keywords": "ESP8266, modulation, encoding, BPSK, manchester encoding, transmission, reception, communication",
