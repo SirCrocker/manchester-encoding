@@ -1,17 +1,27 @@
-/* Transmitter Example (Simple) */
+/* Transmitter Example (With Channel Encoding) */
 
 #include <Arduino.h>
-#include "../ManchesterEnc.h"
+#include "ManchesterEnc.h"
 
-#define MANCH_TX_PIN D5
+#define MANCH_TX_PIN D6
 
 void setup() {
     Serial.begin(115200);
-    Manch.beginTransmit(BR_300, MANCH_TX_PIN);
+    Manch.beginTransmit(BR_19200, MANCH_TX_PIN, MFLAG_CHANNEL_ENC);
 }
 
 void loop() {
-    uint8_t data = (uint8_t)"a";
-
-    Manch.transmit(data);
+    
+    if (Serial.available()) {
+        
+        String toSend = Serial.readString();
+  
+        for (char *it = toSend.begin(); it != toSend.end(); it++)
+        {
+            Manch.transmit(*it);
+            Serial.print(*it);
+            yield();
+        }
+        
+    }
 }
