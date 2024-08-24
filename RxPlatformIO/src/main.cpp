@@ -1,4 +1,4 @@
-/* Transmitter Example (Simple) */
+/* Receiver Example (Simple) */
 
 #include <Arduino.h>
 #include "ManchesterEnc.h"
