@@ -22,7 +22,7 @@ This library is made with the intention of using it in my master's thesis.
 
 ## Installation
 
-Drag and drop the files `Manchester.cpp` and `Manchester.h` to the directory where your libraries are installed.
+Drag and drop the files `Manchester.cpp` and `Manchester.h` to the directory where your libraries are installed, or use platformio package manager.
 
 ## Usage
 
