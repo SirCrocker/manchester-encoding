@@ -1,27 +1,23 @@
 {
     "name": "ManchesterESP",
-    "version": "a-0.0.0",
-    "description": "Manchester library for ESP MCUs",
-    "keywords": "ESP, modulation, encoding, BPSK",
+    "version": "1.0.0-beta",
+    "description": "Manchester library for ESP8266 MCUs",
+    "keywords": "ESP8266, modulation, encoding, BPSK, manchester encoding, transmission, reception, communication",
     "repository":
     {
       "type": "git",
-      "url": "https://github.com/---"
+      "url": "https://github.com/SirCrocker/manchester-encoding"
     },
     "authors":
     [
       {
         "name": "Agustin Gonzalez",
-        "email": "me@john-smith.com",
-        "url": "https://www.john-smith/contact",
+        "email": "agustin.gonzalez@ing.uchile.cl",
+        "url": "https://github.com/SirCrocker",
         "maintainer": true
       }
     ],
     "license": "MIT",
-    "homepage": "https://www.-----.org/",
-    "dependencies": {
-      "ownername/print": "~1.3.0"
-    },
-    "frameworks": "update_me",
-    "platforms": "update_me"
+    "frameworks": "Arduino",
+    "platforms": "espressif8266"
   }
