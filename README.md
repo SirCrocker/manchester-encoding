@@ -1,12 +1,12 @@
 # manchester-encoding
 
-- [About](#-about)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Support](#-support)
-- [Roadmap](#-roadmap)
-- [License](#-license)
-- [Based on](#-based-on)
+- [About](#about)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Support](#support)
+- [Roadmap](#roadmap)
+- [License](#license)
+- [Based on](#based-on)
 
 ## About
 
@@ -30,7 +30,7 @@ Basic usage examples are shown in the next subsections. More examples are availa
 
 ### Transmitter
 
-```arduino
+```c++
 #include <Arduino.h>
 #include "ManchesterEnc.h"
 
@@ -66,7 +66,7 @@ void loop() {
 ```
 
 ### Receiver
-```arduino
+```c++
 #include <Arduino.h>
 #include "ManchesterEnc.h"
 
