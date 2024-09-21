@@ -7,7 +7,7 @@
 
 void setup() {
     Serial.begin(115200);
-    Manch.beginTransmit(BR_19200, MANCH_TX_PIN, MFLAG_CHANNEL_ENC);
+    Manch.beginTransmit(BR_19200, MANCH_TX_PIN, MFLAG_DEF_CHANNEL_ENC);
 }
 
 void loop() {
