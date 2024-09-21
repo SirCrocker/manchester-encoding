@@ -201,7 +201,7 @@ void ManchesterEncoding::transmit(uint8_t message) {
 void ManchesterEncoding::decodeRawBits() {
     // If channel encoding, decode the bits, otherwise return them raw.
 
-    switch (m_flags & MFLAG_DEF_CHANNEL_ENC)
+    switch (m_flags & MMASK_CHANNEL_ENC)
     {
     case MFLAG_DEF_CHANNEL_ENC:
         {
