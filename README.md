@@ -7,6 +7,7 @@
 - [Roadmap](#roadmap)
 - [License](#license)
 - [Based on](#based-on)
+- [Implementation details](#implementation-details)
 
 ## About
 
@@ -116,3 +117,6 @@ manchester-encoding is licensed under the [MIT](./LICENSE) license.
  - ATMEL - Manchester Coding Basics [APPLICATION NOTE] - 9164B–AUTO–07/15
  - mchr3k's [arduino-libs-manchester](https://github.com/mchr3k/arduino-libs-manchester/tree/master)
 
+## Implementation details
+
+If channel encoding is used, then a packet composed of multiple bytes is sent instead of a packet of one byte.
