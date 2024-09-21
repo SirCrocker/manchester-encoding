@@ -61,9 +61,12 @@ typedef enum rxState {
 
 #define MANCH_SAMPLES_PER_MIDBIT 3  // Samples per mid-bit
 
-#define MFLAG_NONE          0       // No flags.
-#define MFLAG_CHANNEL_ENC   1 << 0  // Apply channel encoding (default coding).
-#define MFLAG_ALWAYS_ONE    1 << 2  // Set transmitter to always on. // TODO: UNTESTED
+#define MFLAG_NONE              0       // No flags.
+#define MFLAG_DEF_CHANNEL_ENC   1 << 0  // Apply channel encoding (default coding).
+#define MFLAG_CUS_CHANNEL_ENC   1 << 1  // Apply channel encoding (default coding).
+#define MFLAG_TX_ISALWAYS_ONE   1 << 2  // Set transmitter to always on. // TODO: UNTESTED
+
+#define MMASK_CHANNEL_ENC MFLAG_DEF_CHANNEL_ENC | MFLAG_CUS_CHANNEL_ENC
 
 /************************** 
 -- CLASSES & FUNCTIONS -- 
@@ -156,11 +159,35 @@ public:
     /**
      * @brief Gets the data (if available)
      * 
-     * @param data data "recuperada" will be saved here.
+     * @param data retrieved data will be saved here.
      * 
      * @return bool that determines if data was available.
      */
     bool getData(uint8_t *data);
+
+    /**
+     * @brief Set the function that will apply channel encoding to the data.
+     * 
+     * @param encoding_function pointer to the encoding function. 
+     * 
+     * @attention The function must return a pointer to a buffer where the bytes are stored and have two parameters:
+     * the byte to encode and the size of the buffer.
+     * 
+     * @see transmitter custom chenc example.
+     */
+    void setEncodingFunction(uint8_t* (*encoding_function) (uint8_t, size_t*));
+    
+    /**
+     * @brief Set the function that will apply channel decoding to the data.
+     * 
+     * @param decoding_function pointer to the decoding function.
+     * 
+     * @attention The function must return a bool indicating if decoding was successful and have two parameters:
+     * a byte received and a pointer where the decoded message will be saved.
+     * 
+     * @see receiver custom chenc example.
+     */
+    void setDecodingFunction(bool (*decoding_function) (uint8_t, uint8_t*));
 
 private:
     ManchesterEncoding() = default;
@@ -232,6 +259,8 @@ private:
     uint8_t m_buffer_read_pos;
     uint8_t m_buffer_save_pos;
 
+    uint8_t* (*m_pencode_fun) (uint8_t, size_t*); // Custom encode function
+    bool (*m_pdecode_fun) (uint8_t, uint8_t*);    // Custom decode function
     uint16_t m_flags = MFLAG_NONE;
 
 };

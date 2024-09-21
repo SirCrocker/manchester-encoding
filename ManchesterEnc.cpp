@@ -150,12 +150,18 @@ void ManchesterEncoding::transmit(uint8_t message) {
     size_t num_of_bytes = 0;
     uint8_t *encoded_message = nullptr;
 
-    switch (m_flags & MFLAG_CHANNEL_ENC)
+    switch (m_flags & MMASK_CHANNEL_ENC)
     {
-    case MFLAG_CHANNEL_ENC:
+    case MFLAG_DEF_CHANNEL_ENC:
+        // Default encoding
         encoded_message = encodeData(message, &num_of_bytes);
         break;
     
+    case MFLAG_CUS_CHANNEL_ENC:
+        // Custom encoding
+        encoded_message = m_pencode_fun(message, &num_of_bytes);
+        break;
+
     default:
         // No encoding, we send 1 byte
         encoded_message = &message;
@@ -164,7 +170,7 @@ void ManchesterEncoding::transmit(uint8_t message) {
     }
 
     // Sync signal, makes the receiver detect a transition and enter RX_RECEIVING
-    digitalWrite(m_txpin, (MFLAG_ALWAYS_ONE & m_flags) ? LOW: HIGH);
+    digitalWrite(m_txpin, (MFLAG_TX_ISALWAYS_ONE & m_flags) ? LOW: HIGH);
     delayMicroseconds(m_txdelay);
 
     // When data is encoded, more bytes will be sent (num_of_bytes)
@@ -185,7 +191,7 @@ void ManchesterEncoding::transmit(uint8_t message) {
     }
 
     // We check if the default behaviour of the transmitter is HIGH or LOW and act accordingly
-    digitalWrite(m_txpin, (MFLAG_ALWAYS_ONE & m_flags) ? HIGH: LOW);
+    digitalWrite(m_txpin, (MFLAG_TX_ISALWAYS_ONE & m_flags) ? HIGH: LOW);
 
     // This works like a trailer (it makes the receiver go to IDLE state)
     delayMicroseconds(m_txdelay *12);
@@ -195,9 +201,9 @@ void ManchesterEncoding::transmit(uint8_t message) {
 void ManchesterEncoding::decodeRawBits() {
     // If channel encoding, decode the bits, otherwise return them raw.
 
-    switch (m_flags & MFLAG_CHANNEL_ENC)
+    switch (m_flags & MFLAG_DEF_CHANNEL_ENC)
     {
-    case MFLAG_CHANNEL_ENC:
+    case MFLAG_DEF_CHANNEL_ENC:
         {
         // Decoder
         bool decoded = false;
@@ -206,6 +212,26 @@ void ManchesterEncoding::decodeRawBits() {
         while (g_buffer_read_pos != g_buffer_save_pos) {
             
             decoded = decodeData(g_rawbits_buffer[g_buffer_read_pos], &decoded_message);
+            g_buffer_read_pos = (g_buffer_read_pos + 1) % MANCH_RECV_BUFFER_SIZE;
+
+            if (decoded) {
+                m_byte_buffer[m_buffer_save_pos] = decoded_message;
+                m_buffer_save_pos = (m_buffer_save_pos + 1) % (MANCH_RECV_BUFFER_SIZE / 2);
+            }
+
+        }
+        }
+        break;
+
+    case MFLAG_CUS_CHANNEL_ENC:
+        {
+        // Decoder
+        bool decoded = false;
+        uint8_t decoded_message = 0;
+
+        while (g_buffer_read_pos != g_buffer_save_pos) {
+            
+            decoded = m_pdecode_fun(g_rawbits_buffer[g_buffer_read_pos], &decoded_message);
             g_buffer_read_pos = (g_buffer_read_pos + 1) % MANCH_RECV_BUFFER_SIZE;
 
             if (decoded) {
@@ -271,6 +297,14 @@ bool ManchesterEncoding::decodeData(uint8_t data, uint8_t *decoded_message) {
 
     num_saved++;
     return false;
+}
+
+void ManchesterEncoding::setEncodingFunction(uint8_t* (*encoding_function) (uint8_t, size_t*)) {
+    m_pencode_fun = encoding_function;
+}
+
+void ManchesterEncoding::setDecodingFunction(bool (*decoding_function) (uint8_t, uint8_t*)) {
+    m_pdecode_fun = decoding_function;
 }
 
 /* ------------ STANDALONE FUNCTIONS ------------ */
