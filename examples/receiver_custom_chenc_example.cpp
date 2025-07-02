@@ -1,5 +1,5 @@
 /* Receiver Example (With Custom Channel Encoding) */
-// TODO: UNTESTED
+// TODO: IMPLEMENTAR LO QUE FUNCIONO (EN THESIS)
 
 #include <Arduino.h>
 #include "kronecker-chenc.h"
@@ -27,7 +27,7 @@ bool kroneckerDecodeWrapper(uint8_t data, uint8_t *decoded_message) {
 
     if (num_saved == 1) { // Index starts at 0
         // decode
-        *decoded_message = rank_one_detector_tmpd4s2(vals[0], vals[1], TRAINING_SYMBOLS);   // Bitwise Majority 3
+        *decoded_message = rank_one_detector_tpmd4s2(vals[0], vals[1], TRAINING_SYMBOLS);   // Bitwise Majority 3
         num_saved = 0;
         return true;
     }
@@ -38,7 +38,7 @@ bool kroneckerDecodeWrapper(uint8_t data, uint8_t *decoded_message) {
 
 void setup() {
     Serial.begin(115200);
-    Manch.beginTransmit(BR_19200, MANCH_RECV_PIN, MFLAG_CUS_CHANNEL_ENC);
+    Manch.beginReceive(BR_19200, MANCH_RECV_PIN, MFLAG_CUS_CHANNEL_ENC);
     Manch.setDecodingFunction(kroneckerDecodeWrapper);
 }
 

@@ -66,7 +66,7 @@ typedef enum rxState {
 #define MFLAG_CUS_CHANNEL_ENC   1 << 1  // Apply channel encoding (default coding).
 #define MFLAG_TX_ISALWAYS_ONE   1 << 2  // Set transmitter to always on. // TODO: UNTESTED
 
-#define MMASK_CHANNEL_ENC MFLAG_DEF_CHANNEL_ENC | MFLAG_CUS_CHANNEL_ENC
+#define MMASK_CHANNEL_ENC (MFLAG_DEF_CHANNEL_ENC | MFLAG_CUS_CHANNEL_ENC)
 
 /************************** 
 -- CLASSES & FUNCTIONS -- 

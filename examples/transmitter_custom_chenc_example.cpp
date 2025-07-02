@@ -1,5 +1,5 @@
 /* Transmitter Example (With Channel Encoding) */
-// TODO: UNTESTED
+// TODO: IMPLEMENTAR LO QUE FUNCIONO (EN THESIS)
 
 #include <Arduino.h>
 #include "kronecker-chenc.h"
@@ -20,7 +20,7 @@
 uint8_t* kroneckerEncodeWrapper(uint8_t data, size_t* size) { 
     // Encoding with kronecker-chenc.
     *size = 2;
-    return encode_kronecker_tmpd4s2(data);
+    return encode_kronecker_tpmd4s2(data);
 }
 
 void setup() {
